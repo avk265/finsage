@@ -42,7 +42,7 @@ const perplexity = new OpenAI({
 const chatSessions = {};
 
 // ------------------ MONGODB CONNECTION with Mongoose ------------------
-const uri = "mongodb+srv://user:Finsage-awt-Password@awtcluster.0xgylob.mongodb.net/Finsage"; // Added DB name to URI
+const uri = "process.env.MONGO_URL"; // Added DB name to URI
 
 async function connectDB() {
   try {
