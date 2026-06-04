@@ -5,6 +5,8 @@ import FinancialTracker from "./FinancialTracker";
 import InvestmentHub from "./InvestmentHub";
 import PeerComparison from "./PeerComparison";
 import LifestyleBudgeting from "./Lifestyle";
+import LifestyleManager from "./LifestyleManager";
+import FinanceOverview from "./FinanceOverview";
 import FinancialDetails from "./FinancialDetails";
 import Profile from "./Profile"; // Correctly imported
 import ReactMarkdown from "react-markdown";
@@ -22,6 +24,12 @@ const sidebarActions = [
     label: "Add Financial Details", 
     iconClass: 'lni-bar-chart',
     click: (setCurrentView) => setCurrentView("addFinancial")
+  },
+  {
+    key: "financeOverview",
+    label: "Financial Details Overview",
+    iconClass: 'lni-stats-up',
+    click: (setCurrentView) => setCurrentView("financeOverview")
   },
   { 
     key: "investmentHub", 
@@ -49,9 +57,15 @@ const sidebarActions = [
   },
   { 
     key: "lifestyle", 
-    label: "Lifestyle-based Budgeting",
+    label: "Create Lifestyle Budget",
     iconClass: 'lni-shopping-basket',
     click: (setCurrentView) => setCurrentView("lifestyle")
+  },
+  {
+    key: "lifestyleManager",
+    label: "Manage Lifestyle Budgets",
+    iconClass: 'lni-list',
+    click: (setCurrentView) => setCurrentView("lifestyleManager")
   },
   { 
     key: "peerComparison", 
@@ -136,7 +150,7 @@ const Dashboard = ({
            setIsDashboardLoading(true);
         }
         setDashboardError(''); 
-        const financeResponse = await fetch(`http://localhost:3000/api/user-data?email=${encodeURIComponent(gmail)}`);
+        const financeResponse = await fetch(`http://localhost:3000/api/financial-summary?email=${encodeURIComponent(gmail)}`);
         if (!financeResponse.ok) {
           throw new Error('Could not fetch your financial data. Please add your financial details first.');
         }
@@ -248,6 +262,14 @@ const Dashboard = ({
       );
     }
 
+    const summary = financialData || {};
+    const finance = summary.finance || {};
+    const goals = Array.isArray(summary.goals) ? summary.goals : [];
+    const latestLifestyle = summary.latestLifestyle || null;
+    const transactions = Array.isArray(summary.expenses) ? summary.expenses : [];
+    const activeGoals = goals.filter((goal) => (goal.remainingAmount || 0) > 0);
+    const completedGoals = goals.filter((goal) => (goal.remainingAmount || 0) <= 0);
+
     const {
       totalEarnings = 0,
       rent = 0,
@@ -257,16 +279,14 @@ const Dashboard = ({
       healthcare = 0,
       otherExpenses = 0,
       savings: manualSavings = 0
-    } = financialData;
+    } = finance;
 
-    const totalExpenses = rent + food + transportation + entertainment + healthcare + otherExpenses;
-    const calculatedSavings = totalEarnings - totalExpenses;
-    const savings = manualSavings; 
-    
-    let savingsProgress = 0;
-    if (savings > 0) {
-      savingsProgress = (calculatedSavings / savings) * 100;
-    }
+    const totalExpenses = summary.totalExpenses ?? (rent + food + transportation + entertainment + healthcare + otherExpenses);
+    const calculatedSavings = summary.calculatedSavings ?? (totalEarnings - totalExpenses);
+    const savings = manualSavings;
+    const savingsProgress = savings > 0 ? (calculatedSavings / savings) * 100 : 0;
+    const lifestyleTarget = Number(latestLifestyle?.plannedSavings || latestLifestyle?.totalSaved || 0);
+    const lifestyleRemaining = Math.max(0, lifestyleTarget - calculatedSavings);
 
     return (
       <div className="p-6 space-y-6">
@@ -294,7 +314,36 @@ const Dashboard = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <button
+            onClick={() => setCurrentView("financeOverview")}
+            className="bg-white rounded-lg p-5 shadow text-left hover:shadow-md transition-shadow"
+          >
+            <h2 className="text-gray-500 text-sm font-medium">Transaction History</h2>
+            <p className="text-3xl font-bold text-gray-800 mt-1">{transactions.length}</p>
+            <span className="text-sm text-gray-500">categorized records tracked</span>
+          </button>
+          <button
+            onClick={() => setCurrentView("financialTracker")}
+            className="bg-white rounded-lg p-5 shadow text-left hover:shadow-md transition-shadow"
+          >
+            <h2 className="text-gray-500 text-sm font-medium">Goals</h2>
+            <p className="text-3xl font-bold text-gray-800 mt-1">{activeGoals.length}</p>
+            <span className="text-sm text-gray-500">{completedGoals.length} completed</span>
+          </button>
+          <button
+            onClick={() => setCurrentView("lifestyleManager")}
+            className="bg-white rounded-lg p-5 shadow text-left hover:shadow-md transition-shadow"
+          >
+            <h2 className="text-gray-500 text-sm font-medium">Lifestyle Budget</h2>
+            <p className={`text-2xl font-bold mt-1 ${lifestyleRemaining <= 0 && latestLifestyle ? 'text-green-600' : 'text-amber-600'}`}>
+              {latestLifestyle ? (lifestyleRemaining <= 0 ? 'Ready' : `â‚¹${lifestyleRemaining.toLocaleString('en-IN')} left`) : 'Not set'}
+            </p>
+            <span className="text-sm text-gray-500">based on current savings</span>
+          </button>
+        </div>
+
+        <div className="hidden">
           <div className="lg:col-span-3 bg-white rounded-lg p-6 shadow">
             <h2 className="text-xl font-bold text-gray-800 mb-4">Expense Breakdown</h2>
             <ExpenseBreakdownChart data={financialData} />
@@ -338,6 +387,12 @@ const Dashboard = ({
             <FinancialDetails onNavigateBack={() => setCurrentView("dashboard")} />
           </div>
         );
+      case "financeOverview":
+        return (
+          <div className="p-6">
+            <FinanceOverview />
+          </div>
+        );
       case "investmentHub":
         return (
           <div className="p-6">
@@ -360,6 +415,12 @@ const Dashboard = ({
         return (
           <div className="p-6">
             <LifestyleBudgeting gmail={gmail} />
+          </div>
+        );
+      case "lifestyleManager":
+        return (
+          <div className="p-6">
+            <LifestyleManager />
           </div>
         );
       case "peerComparison":

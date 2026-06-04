@@ -61,8 +61,8 @@ const FinancialTracker = () => {
   // Add new financial goal
   const handleAddGoal = async () => {
     const { goalName, targetAmount, startDate, endDate } = newGoal;
-    if (!goalName || !targetAmount || !startDate || !endDate) {
-      alert('Please fill in all fields to add a goal.');
+    if (!goalName || !targetAmount) {
+      alert('Please enter a goal name and target amount.');
       return;
     }
     if (!userGmail) {
@@ -114,7 +114,8 @@ const FinancialTracker = () => {
       if (!res.ok || !data.success) {
         alert(data.message || 'Failed to update progress');
       } else {
-        alert('Progress updated successfully!');
+        const allocated = data.totalAllocated ?? data.allocation?.totalAllocated;
+        alert(allocated ? `Contribution applied from savings: ₹${Number(allocated).toLocaleString('en-IN')}` : 'Progress updated successfully!');
         refresh();
       }
     } catch (err) {
